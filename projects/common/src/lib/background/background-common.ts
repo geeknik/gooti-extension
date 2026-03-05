@@ -41,6 +41,12 @@ export interface BackgroundRequestMessage {
   host: string;
 }
 
+export type AutoLockTimeout = 0 | 5 | 15 | 30 | 60;
+
+export interface AutoLockConfig {
+  timeoutMinutes: AutoLockTimeout;
+}
+
 export abstract class BackgroundCommon {
   abstract getBrowserSessionData(): Promise<BrowserSessionData | undefined>;
   abstract getBrowserSyncData(): Promise<BrowserSyncData | undefined>;
@@ -63,6 +69,75 @@ export abstract class BackgroundCommon {
     left: number;
     top: number;
   }>;
+  abstract clearSessionData(): Promise<void>;
+
+  #autoLockTimerId: ReturnType<typeof setTimeout> | null = null;
+  #autoLockConfig: AutoLockConfig = { timeoutMinutes: 15 };
+  readonly autoLockTimeoutOptions: AutoLockTimeout[] = [0, 5, 15, 30, 60];
+  readonly AUTO_LOCK_CONFIG_KEY = 'gooti_autoLockConfig';
+
+  async loadAutoLockConfig(): Promise<void> {
+    try {
+      const stored = await this.getAutoLockConfigFromStorage();
+      if (
+        stored &&
+        this.autoLockTimeoutOptions.includes(stored.timeoutMinutes)
+      ) {
+        this.#autoLockConfig = stored;
+      }
+    } catch {
+      // Use default config
+    }
+  }
+
+  getAutoLockConfig(): AutoLockConfig {
+    return { ...this.#autoLockConfig };
+  }
+
+  async setAutoLockTimeout(minutes: AutoLockTimeout): Promise<void> {
+    this.#autoLockConfig.timeoutMinutes = minutes;
+    await this.saveAutoLockConfigToStorage(this.#autoLockConfig);
+    this.restartAutoLockTimer();
+  }
+
+  resetAutoLockTimer(): void {
+    if (this.#autoLockConfig.timeoutMinutes === 0) {
+      return;
+    }
+    this.restartAutoLockTimer();
+  }
+
+  stopAutoLockTimer(): void {
+    if (this.#autoLockTimerId) {
+      clearTimeout(this.#autoLockTimerId);
+      this.#autoLockTimerId = null;
+    }
+  }
+
+  private restartAutoLockTimer(): void {
+    this.stopAutoLockTimer();
+
+    if (this.#autoLockConfig.timeoutMinutes === 0) {
+      return;
+    }
+
+    this.#autoLockTimerId = setTimeout(
+      async () => {
+        await this.handleAutoLock();
+      },
+      this.#autoLockConfig.timeoutMinutes * 60 * 1000,
+    );
+  }
+
+  private async handleAutoLock(): Promise<void> {
+    this.debug('Auto-lock triggered, clearing session data');
+    await this.clearSessionData();
+  }
+
+  protected abstract getAutoLockConfigFromStorage(): Promise<AutoLockConfig | null>;
+  protected abstract saveAutoLockConfigToStorage(
+    config: AutoLockConfig,
+  ): Promise<void>;
 
   debug(message: any, type: 'log' | 'error' = 'log') {
     const dateString = new Date().toISOString();

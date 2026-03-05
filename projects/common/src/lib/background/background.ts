@@ -12,7 +12,11 @@ import { Buffer } from 'buffer';
 import { Identity_DECRYPTED } from '../services/storage/types';
 import { NostrHelper } from '../helpers/nostr-helper';
 
-export const initializeBackground = (backgroundCommon: BackgroundCommon) => {
+export const initializeBackground = async (
+  backgroundCommon: BackgroundCommon,
+) => {
+  await backgroundCommon.loadAutoLockConfig();
+
   type Relays = Record<string, { read: boolean; write: boolean }>;
 
   const openPrompts = new Map<
@@ -164,6 +168,8 @@ export const initializeBackground = (backgroundCommon: BackgroundCommon) => {
     } else {
       backgroundCommon.debug('Request allowed (via saved permission).');
     }
+
+    backgroundCommon.resetAutoLockTimer();
 
     const relays: Relays = {};
     switch (req.method) {
