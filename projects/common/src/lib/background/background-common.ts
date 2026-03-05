@@ -3,7 +3,13 @@
 import { EventTemplate, finalizeEvent, nip04, nip44, Event } from 'nostr-tools';
 import { Nip07Method, Nip07MethodPolicy } from '../models/nostr';
 import { NostrHelper } from '../helpers/nostr-helper';
-import { CryptoHelper } from '../helpers/crypto-helper';
+import {
+  CryptoHelper,
+  KDF_SALT_V1,
+  KDF_ITERATIONS_V1,
+  KDF_ITERATIONS_V2,
+  KDF_VERSION_CURRENT,
+} from '../helpers/crypto-helper';
 import {
   BrowserSessionData,
   BrowserSyncData,
@@ -216,13 +222,45 @@ export abstract class BackgroundCommon {
     permission: Permission_DECRYPTED,
     iv: string,
     password: string,
+    kdfSalt: string = KDF_SALT_V1,
+    kdfIterations: number = KDF_ITERATIONS_V1,
   ): Promise<Permission_ENCRYPTED> {
     const encryptedPermission: Permission_ENCRYPTED = {
-      id: await this.encrypt(permission.id, iv, password),
-      identityId: await this.encrypt(permission.identityId, iv, password),
-      host: await this.encrypt(permission.host, iv, password),
-      method: await this.encrypt(permission.method, iv, password),
-      methodPolicy: await this.encrypt(permission.methodPolicy, iv, password),
+      id: await this.encrypt(
+        permission.id,
+        iv,
+        password,
+        kdfSalt,
+        kdfIterations,
+      ),
+      identityId: await this.encrypt(
+        permission.identityId,
+        iv,
+        password,
+        kdfSalt,
+        kdfIterations,
+      ),
+      host: await this.encrypt(
+        permission.host,
+        iv,
+        password,
+        kdfSalt,
+        kdfIterations,
+      ),
+      method: await this.encrypt(
+        permission.method,
+        iv,
+        password,
+        kdfSalt,
+        kdfIterations,
+      ),
+      methodPolicy: await this.encrypt(
+        permission.methodPolicy,
+        iv,
+        password,
+        kdfSalt,
+        kdfIterations,
+      ),
     };
 
     if (typeof permission.kind !== 'undefined') {
@@ -230,13 +268,46 @@ export abstract class BackgroundCommon {
         permission.kind.toString(),
         iv,
         password,
+        kdfSalt,
+        kdfIterations,
       );
     }
 
     return encryptedPermission;
   }
 
-  async encrypt(value: string, iv: string, password: string): Promise<string> {
-    return await CryptoHelper.encrypt(value, iv, password);
+  async encrypt(
+    value: string,
+    iv: string,
+    password: string,
+    kdfSalt: string = KDF_SALT_V1,
+    kdfIterations: number = KDF_ITERATIONS_V1,
+  ): Promise<string> {
+    return await CryptoHelper.encrypt(
+      value,
+      iv,
+      password,
+      kdfSalt,
+      kdfIterations,
+    );
+  }
+
+  getKdfParams(browserSyncData: BrowserSyncData | undefined): {
+    salt: string;
+    iterations: number;
+  } {
+    if (
+      browserSyncData?.kdfVersion === KDF_VERSION_CURRENT &&
+      browserSyncData.kdfSalt
+    ) {
+      return {
+        salt: browserSyncData.kdfSalt,
+        iterations: KDF_ITERATIONS_V2,
+      };
+    }
+    return {
+      salt: KDF_SALT_V1,
+      iterations: KDF_ITERATIONS_V1,
+    };
   }
 }

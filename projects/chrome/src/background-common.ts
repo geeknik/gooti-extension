@@ -84,7 +84,6 @@ export class ChromeBackgroundCommon extends BackgroundCommon {
       kind,
     };
 
-    // Store session data
     await chrome.storage.session.set({
       permissions: [...browserSessionData.permissions, permission.id],
     });
@@ -92,11 +91,13 @@ export class ChromeBackgroundCommon extends BackgroundCommon {
       [`permission_${permission.id}`]: permission,
     });
 
-    // Encrypt permission to store in sync storage (depending on sync flow).
+    const kdfParams = this.getKdfParams(browserSyncData);
     const encryptedPermission = await this.encryptPermission(
       permission,
       browserSessionData.iv,
       browserSessionData.vaultPassword as string,
+      kdfParams.salt,
+      kdfParams.iterations,
     );
 
     await this.savePermissionsToBrowserSyncStorage(
