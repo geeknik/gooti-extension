@@ -26,7 +26,7 @@ async window.nostr.nip44.decrypt(pubkey, ciphertext): string
 To build and run the Firefox extension from this code:
 
 ```
-git clone https://github.com/sam-hayes-org/gooti-extension
+git clone https://github.com/geeknik/gooti
 cd gooti-extension
 npm ci
 npm run build:firefox
